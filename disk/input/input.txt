@@ -1,0 +1,6 @@
+./bin/disk_timer 50 > out.txt
+./bin/disk_timer 1 > out2.txt
+./bin/disk p 2 5 10 > out3.txt
+./bin/disk l 410 > out4.txt
+./bin/disk 10 > out5.txt
+./bin/disk 0 > out6.txt

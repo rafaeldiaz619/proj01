@@ -22,12 +22,13 @@ CIDEV_RET_CODE lba2chs(lba_t lba, chs_t *chs)
 {
     if (lba >= MAX_LOGICAL_BLOCK)
         return CIDEV_ADDRESS_ERROR;
+// todone: implement
 
-// todo: implement
-
-//   readDisk(lba, sizeof(chs_t), (char *)&chs);
-
-
+    unsigned int blocks_per_cyl = NUM_OF_HEADS * NUM_OF_SECTS;
+    chs->cyl = lba / blocks_per_cyl;
+    unsigned int rem = lba % blocks_per_cyl;
+    chs->head = rem / NUM_OF_SECTS;
+    chs->sect = rem % NUM_OF_SECTS;
     return CIDEV_SUCCESS;
 }
 
@@ -38,8 +39,13 @@ CIDEV_RET_CODE lba2chs(lba_t lba, chs_t *chs)
  */
 CIDEV_RET_CODE chs2lba(chs_t *chs, lba_t *lba)
 {
-// todo: implement
+// todone: implement
+    if (chs->cyl >= NUM_OF_CYLS || chs->head >= NUM_OF_HEADS || chs->sect >= NUM_OF_SECTS)
+        return CIDEV_ADDRESS_ERROR;
 
+    *lba = (lba_t)chs->cyl * NUM_OF_HEADS * NUM_OF_SECTS
+         + (lba_t)chs->head * NUM_OF_SECTS
+         + (lba_t)chs->sect;
     return CIDEV_SUCCESS;
 }
 /***
@@ -70,18 +76,39 @@ what will the values of offset be during each write?
  */
 CIDEV_RET_CODE readDisk(lba_t lba, unsigned int size, char **buffer)
 {
-// todo: verify parameters
+// todone: verify parameters
+    if (lba >= MAX_LOGICAL_BLOCK || buffer == NULL)
+        return CIDEV_ADDRESS_ERROR;
 
+    *buffer = (char *)malloc(size + 1); // todone: modify as required
+    if (*buffer == NULL)
+        return CIDEV_SPACE_ERROR;
+
+    unsigned int bytes_left = size;
+    unsigned int offset = 0;
+    lba_t current = lba;
     chs_t chs;
 
-   *buffer = malloc(11*sizeof(char)); // todo: modify as required
-    strcpy(*buffer, "   ");
 
-    CIDEV_RET_CODE errCode = CIDEV_SUCCESS;
+    while (bytes_left > 0) {
+        if (current >= MAX_LOGICAL_BLOCK) {
+            free(*buffer);
+            return CIDEV_ADDRESS_ERROR;
+        }
 
-    // todo: implement
-    memcpy((*buffer) + 16, disk [NUM_OF_CYLS][NUM_OF_HEADS][NUM_OF_SECTS], SECT_SIZE);
-    return errCode;
+        lba2chs(current, &chs);
+        unsigned int chunk = (bytes_left < SECT_SIZE ? bytes_left : SECT_SIZE);
+        memcpy(*buffer + offset, disk[chs.cyl][chs.head][chs.sect], chunk);
+
+        bytes_left -= chunk;
+        offset += chunk;
+        current++;
+    }
+
+    // todone: implement
+    (*buffer)[size] = '\0';
+    return CIDEV_SUCCESS;
+
 }
 
 /***
@@ -119,17 +146,37 @@ CIDEV_RET_CODE clearBlock(lba_t lba)
  * Validates the parameters, and then writes the caller-provided data to the disk starting at the block pointed
  * to by the logical block address.
  *
- *
  */
 CIDEV_RET_CODE writeDisk(lba_t lba, char *buffer)
 {
-// todo: verify the parameters
+// todone: verify the parameters
+    if (lba >= MAX_LOGICAL_BLOCK || buffer == NULL)
+        return CIDEV_ADDRESS_ERROR;
 
-    CIDEV_RET_CODE errCode = CIDEV_SUCCESS;
-
+    unsigned int size = (unsigned int)strlen(buffer);
+    unsigned int bytes_left = size;
+    unsigned int offset = 0;
+    lba_t current = lba;
     chs_t chs;
 
-// todo: implement
+    while (bytes_left > 0) {
+        if (current >= MAX_LOGICAL_BLOCK)
+            return CIDEV_ADDRESS_ERROR;
 
-    return errCode;
+        lba2chs(current, &chs);
+        unsigned int chunk = (bytes_left < SECT_SIZE ? bytes_left : SECT_SIZE);
+
+        memcpy(disk[chs.cyl][chs.head][chs.sect], buffer + offset, chunk);
+
+        if (chunk < SECT_SIZE) {
+            for (unsigned int j = chunk; j < SECT_SIZE; j++)
+                disk[chs.cyl][chs.head][chs.sect][j] = '.';
+        }
+
+        bytes_left -= chunk;
+        offset += chunk;
+        current++;
+    }
+
+    return CIDEV_SUCCESS;
 }

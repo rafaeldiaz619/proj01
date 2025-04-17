@@ -1,0 +1,3 @@
+
+Logical sector number: 410
+Physical address: (2, 5, 10)
